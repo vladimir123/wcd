@@ -1,0 +1,6 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+}
+#weatherResult, #currencyResult {
+  min-height: 80px;
+}
