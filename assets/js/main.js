@@ -5,7 +5,6 @@ $(document).ready(function () {
         itemSelectText: '',
         shouldSort: false,
         fuseOptions: {
-        // Включаем поиск по `label` и `customProperties.country`
         keys: ['label', 'customProperties.country']
         },
         callbackOnCreateTemplates: function (template) {
@@ -23,7 +22,6 @@ $(document).ready(function () {
         }
     });
 
-// Добавляем customProperties для поиска
 const items = citySelect.querySelectorAll('option');
 items.forEach((option, index) => {
     const country = option.getAttribute('data-country');
@@ -33,11 +31,11 @@ items.forEach((option, index) => {
 });
 
   function loadWeather(city) {
+    console.log("city => ", city);
     if (!city) {
       $('#weatherResult').text('Please select a city.');
       return;
     }
-    $('#weatherResult').text('Loading...');
     $.getJSON('api/weather.php', { city }, function (data) {
       $('#weatherResult').html(`
         <strong>${data.city}</strong><br>
@@ -49,17 +47,22 @@ items.forEach((option, index) => {
     });
   }
 
-  function loadCurrency() {
-    $('#currencyResult').text('Loading...');
-    $.getJSON('api/currency.php', function (rates) {
-      let html = '<ul>';
-      for (const [key, value] of Object.entries(rates)) {
-        html += `<li>USD → ${key}: ${value.toFixed(2)}</li>`;
+  function loadCurrency(cntry) {
+    if (!cntry) {
+      $('#currencyResult').text('Please select country.');
+      return;
+    }
+    $.ajax({
+      type: "POST",
+      url: 'api/currency.php',
+      data: {country: cntry},
+      dataType: "json",
+      success: function (data) {
+        $('#currencyResult').html(`1 USD = ${data.rateToUSD.toFixed(2)} ${data.currency}`);
+      },
+      error: function (xhr) {
+        $('#currencyResult').html(`Error fetching currency data: ${xhr.responseJSON.error}`);
       }
-      html += '</ul>';
-      $('#currencyResult').html(html);
-    }).fail(function () {
-      $('#currencyResult').text('Failed to load exchange rates.');
     });
   }
 
@@ -67,7 +70,14 @@ items.forEach((option, index) => {
     loadWeather(this.value);
   });
 
-loadWeather();
-loadCurrency();
+  $('#countrySelect').on('change', function () {
+    let country = this.options[this.selectedIndex].text;
+    loadCurrency(country);
+    $('#currencyResult').html("");
+    $('#weatherResult').text('Please select a city.');
+  });
+
+  loadWeather();
+  loadCurrency();
 
 });

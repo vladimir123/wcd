@@ -1,3 +1,4 @@
+<?php error_reporting(0); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,10 +7,15 @@
         require_once 'config.php';
   ?>
   <title>Weather & Currency Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/scripts/choices.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/choices.js@11.1.0/public/assets/styles/choices.min.css" rel="stylesheet">
+  <script src="assets/js/libs/choices.min.js"></script>
+  <script src="assets/js/libs/jquery-3.7.1.min.js"></script>
+  <script src="assets/js/main.js?v=<?php echo time(); ?>"></script>
+  <script src="assets/js/country_city.js"></script>
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <link href="assets/css/libs/choices.min.css" rel="stylesheet">
+  <link href="assets/css/libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/libs/fontawesome/all.css">
   <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body class="p-4 bg-light">
@@ -17,10 +23,65 @@
     <h2 class="mb-4">Weather & Currency Dashboard</h2>
 
     <?php
-        $response = file_get_contents(ALLCOUNTRIES);
-        $data = json_decode($response);
-        $cleanData = isset($data->data) ? $data->data : $data;
-    ?>
+      function fetchWithRetries($url, $maxRetries = 5, $initialDelay = 1) {
+          $attempt = 0;
+          $delay = $initialDelay;
+
+          while ($attempt < $maxRetries) {
+              $opts = [
+                  "http" => [
+                      "method" => "GET",
+                      "header" => "Accept: application/json\r\n"
+                  ]
+              ];
+              $context = stream_context_create($opts);
+              $response = @file_get_contents($url, false, $context);
+
+              $httpCode = 0;
+              if (isset($http_response_header)) {
+                  if (preg_match('#HTTP/\d+\.\d+\s+(\d+)#', $http_response_header[0], $matches)) {
+                      $httpCode = intval($matches[1]);
+                  }
+              }
+
+              if ($response !== false && $httpCode >= 200 && $httpCode < 300) {
+                  return $response;
+              }
+
+              if ($httpCode == 429 || $httpCode == 503) {
+                  // timeout
+                  sleep($delay);
+                  $delay *= 2; // increse delay for next attempt
+              } else {
+                  break;
+              }
+
+              $attempt++;
+          }
+
+          return false;
+      }
+
+      try {
+          $response = fetchWithRetries(ALLCOUNTRIES);
+
+          if ($response === false) {
+              throw new Exception("API timeout. Please try again later");
+          }
+
+          $data = json_decode($response);
+          if (json_last_error() !== JSON_ERROR_NONE) {
+              throw new Exception("JSON error: " . json_last_error_msg());
+          }
+
+          $cleanData = isset($data->data) ? $data->data : $data;
+
+          // Используй $cleanData дальше
+      } catch (Exception $e) {
+          echo "<div class='alert alert-danger'>Error: " . htmlspecialchars($e->getMessage()) . " <i class='fa-solid fa-arrows-rotate' style='cursor: pointer;' onclick='location.reload();' title='Reload'></i></div>";
+      }
+  ?>
+
 
     <div class="mb-3">
         <label for="countrySelect" class="form-label">Country:</label>
@@ -52,12 +113,6 @@
   window.countryCityData = <?php echo json_encode($cleanData); ?>;
 </script>
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="assets/js/main.js?v=<?php echo time(); ?>"></script>
-  <script src="assets/js/country_city.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
 
 </body>
 </html>
